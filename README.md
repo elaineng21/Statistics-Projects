@@ -1,5 +1,5 @@
 # Statistics-Projects
-Repository for projects that I have worked on relating to statistics.
+Repository for projects that I have worked on relating to data analysis.
 
 Projects included:
 
