@@ -1,5 +1,5 @@
 # Statistics-Projects
-Repository for projects that I have worked on relating to statistics.
+Repository for projects that I have worked on relating to data analysis.
 
 Projects included:
 
@@ -22,5 +22,12 @@ Projects included:
 **File:** RegressionAnalysisWorldHappiness.pdf <br/>
 **Date:** September 2019 - November 2019 <br/>
 **Description:** Researching what makes the world happy using the World Happiness Report published in 2011. Performed data preprocessing, descriptive analysis, regression assumptions testing, regression model fitting using basic predictors, possible transformation, and interaction terms, reliability evaluation, and prediction. <br/>
+
+-----------------------------------------------------------------------------------------------------------------
+
+**Title:** Predicting Credit Card Fraud Transactions. <br/>
+**File:** CreditCardFraudPrediction.pdf <br/>
+**Date:** November 2020 - December 2020 <br/>
+**Description:** Credit card fraud prediction using machine learning algorithms in Python. Data preprocessing: handling missing values and datetime variables, one hot encoding categorical  variables, and dropping irrelevant variables. Large data set visualization using matplotlib and seaborn. Data resampling: Tomek Links, One-Sided Selection, Edited Nearest Neighbors Rule, Condensed Nearest Neighbor, and Near-Miss in order to achieve a more balanced data set. Model training: Logistic Regression, Random Forest, AdaBoost, and XGBoost. Using GridSearchCV to search for best parameters. Model evaluation using k-cross validation. <br/>
 
 -----------------------------------------------------------------------------------------------------------------
