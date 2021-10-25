@@ -4,6 +4,13 @@ Repository for projects that I have worked on relating to data analysis.
 Projects included:
 
 -----------------------------------------------------------------------------------------------------------------
+  **Title:** Lockheed Martin: Everglades Analytics.<br/>
+  **File:** EvergladesAnalytics <br />
+  **Date:** September 2020 - April 2021 <br />
+  **Description:** Starcraft II competitive level matches data collection, parsing, and preprocessing. Win prediction using supervised 
+machine learning algorithms: KNN, Logistic Regression, LSTM, GRU, Simple RNN, and Dense Network utilizing Python, Scikit-Learn, and TensorFlow. <br/>
+
+-----------------------------------------------------------------------------------------------------------------
   **Title:** Time Series Analysis and Forecasting for the Number of Tourists visiting Aruba using SARIMA models. <br/>
   **File:** TimeSeriesAnalysisArubaTourism.pdf <br />
   **Date:** March 2019 - April 2019 <br />
