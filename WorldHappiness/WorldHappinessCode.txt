@@ -1,0 +1,370 @@
+/*data Happiness;
+infile "\\Client\C$\NewDataCSV.csv" firstobs = 2 missover dlm = "," dsd;
+input WP5$ Country$ Year Life_Ladder GDP Social_Support Life_Expectancy Freedom Corruption;
+run;
+*/
+data Happiness;
+set Work.Import;
+run;
+*create a new dataset called Happiness2 that only includes observations from the year 2011 and drops the variable Country;
+data Happiness2;
+set Happiness (drop = Country);
+where Year = 2011;
+/*These three are the unique interactions which seem like they are definitely interactions*/
+gdp_social_support = gdp * social_support;
+social_support_life_expectancy = social_support * life_expectancy;
+social_support_freedom = social_support*freedom;
+freedom_life_expectancy = freedom*life_expectancy;
+run;
+
+*prints the new dataset;
+proc print data = Happiness2;
+title 'All observations for 2011';
+run;
+
+*divide data into subsets - training group(60%) and holdout group(40%);
+%let prop_Model = 0.6;
+%let prop_Holdout = 0.4;
+data Model Holdout;
+array p[2] _temporary_ (&prop_Model, &prop_Holdout);
+set Happiness2;
+call streaminit(123); /* set random number seed */
+/* RAND("table") returns 1, 2, or 3 with specified probabilities */
+_k = rand("Table", of p[*]);
+if _k = 1 then output Model;
+else output Holdout;
+drop _k;
+run;
+
+*prints training observations;
+proc print data = Model;
+var WP5 Life_Ladder GDP Social_Support Life_Expectancy Freedom Corruption;
+title 'Training Group';
+run;
+
+*prints holdout observations;
+proc print data = Holdout;
+var WP5 Life_Ladder GDP Social_Support Life_Expectancy Freedom Corruption;
+title 'Holdout Group';
+run;
+
+/*check for normality and linearity assumptions
+we have large sample n > 50 so we use Kolmogorov
+p-value = 0.15 -> do not reject H0 -> Normal distribution
+the qqplot looks linear
+*/
+ods graphics on;
+proc reg data = Model;
+model Life_Ladder = GDP Social_Support Life_Expectancy Freedom Corruption;
+output out = normalityTest r = resid;
+title 'Test of Normality';
+run;
+proc univariate data = normalityTest plot normal;
+var resid;
+run;
+ods graphics off;
+
+/* Okay, I did more googling and also asked some friends and I think is best we either delete the observation or fill it in with some value 
+instead of leaving it empty. Above we checked for Normal Distribution and since it is normal it's symmetric around the mean so I chose Mean Imputation.
+*/
+proc stdize data = Model reponly method = mean out = CompleteModel;
+var GDP Social_Support Life_Expectancy Freedom Corruption;
+run;
+
+proc print data = CompleteModel;
+var WP5 Life_Ladder GDP Social_Support Life_Expectancy Freedom Corruption;
+title 'Complete Model';
+run;
+
+*I am not sure if we fill in missing value for the hold out data or not. If we shouldn't just don't use this part of the code;
+proc stdize data = Holdout reponly method = mean out = CompleteHoldout;
+var GDP Social_Support Life_Expectancy Freedom Corruption;
+run;
+
+proc print data = CompleteHoldout;
+var WP5 Life_Ladder GDP Social_Support Life_Expectancy Freedom Corruption;
+title 'Complete Holdout';
+run;
+
+/*check for outliers and influential points
+Cook's  di > 1 ; none of the observation has Cook's di > 1
+absolute studentized residuals |ri| > 3 ; none of the observation has |ri| > 3
+*/
+proc reg data = CompleteModel;
+model Life_Ladder = GDP Social_Support Life_Expectancy Freedom Corruption / r influence;
+title 'Outliers and Influential Points';
+run;
+
+/*plots for detecting outliers and influential points
+There are potentially 4 observations with leverage -> Swaziland, Rwanda, Pakistan & Singapore
+None of the observations had |ri| > 3. Angola, Bahrain, Botswana, Bulgaria & Pakistan has |ri| > 2 but less than 3. 
+So, I won't consider them as outliers.
+*/
+ods graphics on;
+proc reg data = CompleteModel
+plots(label)=(CooksD RStudentByLeverage RStudentByPredicted DFFITS DFBETAS);
+id WP5;
+model Life_Ladder = GDP Social_Support Life_Expectancy Freedom Corruption;
+title 'Outliers and Influential Points Plots';
+run;
+ods graphics off;
+
+*just some descriptive statistics;
+proc means data = CompleteModel n mean median std min max;
+var Life_Ladder GDP Social_Support Life_Expectancy Freedom Corruption;
+title 'Descriptive Statistics';
+run;
+
+*correlation matrix to check for collinearity, none of them is > 0.8?;
+proc corr data = CompleteModel;
+var Life_Ladder GDP Social_Support Life_Expectancy Freedom Corruption;
+title 'Correlation Matrix';
+run;
+
+*another check for collinearity using VIF. none has VIF > 10;
+proc reg data = CompleteModel ;
+model Life_Ladder = GDP Social_Support Life_Expectancy Freedom Corruption / vif;
+ods graphics off;
+run;
+
+/*check for constant variance
+the p-value for this test is 0.8993, so we do not reject H0 -> we have constant variance.
+*/
+proc reg data = CompleteModel;
+model Life_Ladder = GDP Social_Support Life_Expectancy Freedom Corruption / spec;
+title 'Test for Homogeneity of Variance';
+run;
+
+*testing for transformation -> everything besides Corruption looks linear;
+proc sgplot data = CompleteModel;
+scatter y = Life_Ladder x = GDP;
+title 'Happiness vs GDP Scatter plot';
+run;
+
+proc sgplot data = CompleteModel;
+scatter y = Life_Ladder x = Social_Support;
+title 'Life Ladder vs Social Support Scatter plot';
+run;
+
+proc sgplot data = CompleteModel;
+scatter y = Life_Ladder x = Life_Expectancy;
+title 'Life Ladder vs Life Expectancy Scatter plot';
+run;
+
+proc sgplot data = CompleteModel;
+scatter y = Life_Ladder x = Freedom;
+title 'Life Ladder vs Freedom Scatter plot';
+run;
+
+*I don't know what pattern this is;
+proc sgplot data = CompleteModel;
+scatter y = Life_Ladder x = Corruption;
+title 'Life Ladder vs Corruption Scatter plot';
+run;
+
+*data set with the 4 leverage observations removed;
+data noLeverage;
+set CompleteModel;
+if WP5 = 'Swazilan' THEN DELETE;
+if WP5 = 'Rwanda' THEN DELETE;
+if WP5 = 'Singapor' THEN DELETE;
+if WP5 = 'Pakistan' THEN DELETE;
+run;
+
+/*Find Interactions*/
+data gdpInteraction;
+	set NoLeverage;
+	if gdp > 11 then gdpi = 3;
+	else if gdp > 10 then gdpi = 2;
+	else if gdp > 9 then gdpi = 1;
+	else gdpi = 0;
+run;
+
+/*.5 minimum, maximum .97*/
+data supportInteraction;
+	set NoLeverage;
+	if social_support > .86 then supporti = 3;
+	else if social_support > .74 then supporti = 2;
+	else if social_support > .62 then supporti = 1;
+	else supporti = 0;
+run;
+
+/*41 minimum, 74 maximum*/
+data expectancyInteraction;
+	set NoLeverage;
+	if life_expectancy > 66 then expectancyi = 3;
+	else if life_expectancy > 58 then expectancyi = 2;
+	else if life_expectancy > 50 then expectancyi = 1;
+	else expectancyi = 0;
+run;
+
+/*.34 minimum, .95 maximum*/
+data freedomInteraction;
+	set NoLeverage;
+	if freedom > .80 then freedomi = 3;
+	else if freedom > .65 then freedomi = 2;
+	else if freedom > .5 then freedomi = 1;
+	else freedomi = 0;
+run;
+
+/*.098 minimum, .97 maximum*/
+data corruptionInteraction;
+	set NoLeverage;
+	if corruption > .75 then corruptioni = 3;
+	else if corruption > .54 then corruptioni = 2;
+	else if corruption > .33 then corruptioni = 1;
+	else corruptioni = 0;
+run;
+
+/*proc glm data = Model;
+	model Life_Ladder = GDP | Social_Support / solution;
+	ods select ParameterEstimates ContourFit;
+run;
+*/
+ods graphics on;
+/*GDP Interactions*/
+
+/*GDP seems to interact with social support. The slopes of 
+	the lines for social support are different for each level of 'gdp'*/
+proc glm data=gdpInteraction;
+   class gdpi;
+   model Life_Ladder = Social_Support | gdpi / solution; /* one continuous, one categorical */
+run;
+
+/*Possibly no interaction?*/
+proc glm data=gdpInteraction;
+   class gdpi;
+   model Life_Ladder = Life_Expectancy | gdpi / solution; /* one continuous, one categorical */
+run;
+
+/*Possibly no interaction?*/
+proc glm data=gdpInteraction;
+   class gdpi;
+   model Life_Ladder = Freedom | gdpi / solution; /* one continuous, one categorical */
+run;
+
+/*Possibly no interaction?*/
+proc glm data=gdpInteraction;
+   class gdpi;
+   model Life_Ladder = corruption | gdpi / solution; /* one continuous, one categorical */
+run;
+
+
+/*Social Support interactions*/
+
+/*Interaction*/
+proc glm data=supportInteraction;
+   class supporti;
+   model Life_Ladder = Life_Expectancy | supporti / solution; /* one continuous, one categorical */
+run;
+
+/*Interaction*/
+proc glm data=supportInteraction;
+   class supporti;
+   model Life_Ladder = Freedom | supporti / solution; /* one continuous, one categorical */
+run;
+
+/*Possibly no interaction?*/
+proc glm data=supportInteraction;
+   class supporti;
+   model Life_Ladder = corruption | supporti / solution; /* one continuous, one categorical */
+run;
+
+
+/*Life_Expectancy Interactions*/
+
+/*Posibly no interaction?*/
+proc glm data=expectancyInteraction;
+   class expectancyi;
+   model Life_Ladder = Freedom | expectancyi / solution; /* one continuous, one categorical */
+run;
+
+/*Possibly no interaction?*/
+proc glm data=expectancyInteraction;
+   class expectancyi;
+   model Life_Ladder = corruption | expectancyi / solution; /* one continuous, one categorical */
+run;
+
+
+/*Freedom Interactions*/
+
+/*Interaction,but we're possibly dropping corruption?*/
+proc glm data=freedomInteraction;
+   class freedomi;
+   model Life_Ladder = corruption | freedomi / solution; /* one continuous, one categorical */
+run;
+
+ods graphics off;
+
+proc print data = noLeverage;
+var WP5 Life_Ladder GDP Social_Support Life_Expectancy Freedom Corruption;
+title 'Data without Leverage';
+run;
+
+/*Searching model, I set alpha = 0.25 and all 3 strategies has the same model
+forward and stepwise has the higher r^2 and cp = (p+1)
+*/
+
+/*I've heard online that the step-wise selection is not necessarily preferred to just forward and backward selection,
+   so I think we should just go with either backward or forward. And since we have the issue of 'what is a large enough
+   alpha?' we should probably go with backwards. It seems like it works with a small enough alpha as .1 -Timothy*/
+proc reg data = noLeverage;
+model Life_Ladder = GDP Social_Support Life_Expectancy Freedom Corruption gdp_social_support social_support_life_expectancy social_support_freedom freedom_life_expectancy/ selection = backward SLS = 0.1;
+title 'Backwards Elimination without Leverage';
+run;
+
+proc reg data = noLeverage;
+model Life_Ladder = GDP Social_Support Life_Expectancy Freedom Corruption gdp_social_support social_support_life_expectancy social_support_freedom / selection = forward SLE = 0.75;
+title 'Forward Elimination without Leverage';
+run;
+
+proc reg data = noLeverage;
+model Life_Ladder = GDP Social_Support Life_Expectancy Freedom Corruption gdp_social_support social_support_life_expectancy social_support_freedom / selection = stepwise SLS = 0.1 SLE = 0.75;
+title 'Step-wise Elimination without Leverage';
+run;
+
+*comparing r^2 for different data sets;
+proc reg data = CompleteModel;
+model Life_Ladder = GDP Life_Expectancy Freedom social_support_life_expectancy freedom_life_expectancy;
+title 'Squared Correlation Coefficient Complete Model';
+run;
+
+proc reg data = Holdout;
+model Life_Ladder = GDP Life_Expectancy Freedom social_support_life_expectancy freedom_life_expectancy;
+title 'Squared Correlation Coefficient Holdout';
+run;
+
+*if we fill in missing value for holdout use code below, if not use the one above;
+proc reg data = CompleteHoldout;
+model Life_Ladder = GDP Social_Support Life_Expectancy Freedom Corruption;
+title 'Squared Correlation Coefficient Complete Holdout';
+run;
+
+*Apply model to entire data set;
+proc reg data = Happiness2 outest = prediction;
+model Life_Ladder = GDP Social_Support Life_Expectancy Freedom Corruption;
+title 'Squared Correlation Coefficient All Observations';
+run;
+
+proc print data = prediction;
+title 'Model 1';
+run;
+
+*I think this is trying to compare what our best model calculates and the actual value -> last column has the predicted value with our model?;
+proc score data = Happiness2 score = prediction out = RScoreP type = parms;
+var GDP Social_Support Life_Expectancy Freedom Corruption;
+run;
+
+proc print data = RScoreP;
+title 'Predictions with Model 1';
+run;
+
+data compare;
+set RScoreP;
+diff = Happiness - MODEL1;
+run;
+
+proc print data = compare;
+var WP5 Life_Ladder MODEL1 diff;
+title 'Difference between Actual and Predicted values';
+run;

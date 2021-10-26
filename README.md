@@ -27,7 +27,7 @@ machine learning algorithms: KNN, Logistic Regression, LSTM, GRU, Simple RNN, an
 -----------------------------------------------------------------------------------------------------------------
 
 **Title:** Regression Analysis for Prediction: World Happiness in 2011. <br/>
-**File:** RegressionAnalysisWorldHappiness.pdf <br/>
+**File:** WorldHappiness <br/>
 **Date:** September 2019 - November 2019 <br/>
 **Description:** Researching what makes the world happy using the World Happiness Report published in 2011. Performed data preprocessing, descriptive analysis, regression assumptions testing, regression model fitting using basic predictors, possible transformation, and interaction terms, reliability evaluation, and prediction. <br/>
 
