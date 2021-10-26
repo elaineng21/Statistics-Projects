@@ -20,7 +20,7 @@ machine learning algorithms: KNN, Logistic Regression, LSTM, GRU, Simple RNN, an
 -----------------------------------------------------------------------------------------------------------------
 
 **Title:** A Linear Model to Predict Reported Hate Crimes. <br/>
-**File:** ReportedHateCrimePrediction.pdf <br/>
+**File:** HateCrime <br/>
 **Date:** November 2019 - December 2019 <br/>
 **Description:** Data collection and preprocessing. Perform descriptive statistics. Testing regression assumptions: linearity, normality, constant variance, and collinearity. Perform analysis of Boxplot, Outliers, Leverage, and Influential Observations. Build models using Backward Elimination, Forward Selection and Stepwise Model to predict hate crimes reported to the FBI and SPLC. <br/>
 

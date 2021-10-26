@@ -1,0 +1,298 @@
+*********************************************************;
+	/* Group Project
+
+Directory: \\Client\C$\hate_crimes.csv
+Author: Elaine Ng, Roshnaey Khattak, Weijun Huang
+
+Data File ---------------------------------------------------
+
+•	state (identifying variable, character)
+•	income: Median household income
+•	unemployment: Unemployment rate
+•	population: Share of population in metro areas
+•	highSchool: Share of population with high school degree
+•	nonCitizen: Share of population non-US citizen
+•	whitePoverty: Level of white poverty
+•	gini: GINI index (measurement of inequality)
+•	nonWhite: Share of non white population
+•	trump: Share of population that voted for Trump
+•	splc: Hate crimes per 100,000 reported to the SPLC
+•	fbi: Hate crimes per 100,000 reported to the FBI
+*/
+*************************************************************;
+
+data HateCrime;
+infile "\\Client\C$\hate_crimes.csv" firstobs = 2 missover dlm = "," dsd;
+input state:$22. income unemployment population highSchool nonCitizen whitePoverty gini nonWhite trump splc fbi;
+group = 1;
+run;
+
+proc print data = HateCrime;
+title 'Hate Crime Data';
+run;
+
+*descriptive data;
+proc means data = HateCrime;
+title 'Descriptive Statistics';
+run;
+
+proc boxplot data = hatecrime;
+plot (splc income unemployment population highSchool nonCitizen whitePoverty gini nonWhite trump)*group 
+/ boxstyle = schematic;
+run; 
+
+proc corr data = hatecrime plots = matrix(histogram);
+var splc income unemployment population highSchool nonCitizen whitePoverty gini nonWhite trump;
+run;
+
+/*backwards elimination
+splc = Population + High School + Gini + Trump  
+r^2 = 0.5561
+*/
+proc reg data = HateCrime;
+model splc = income unemployment population highSchool nonCitizen whitePoverty gini nonWhite trump / selection = backward SLS = 0.1;
+title 'Backward Elimination';
+run;
+
+proc reg data = HateCrime;
+model splc = trump gini highSchool population;
+title 'Squared Correlation Coefficient (Backwards Elimination Model)';
+run;
+
+/*forward selection
+splc = Gini + Non-White + Trump   
+r^2 = 0.5266 
+*/
+proc reg data = HateCrime;
+model splc = income unemployment population highSchool nonCitizen whitePoverty gini nonWhite trump / selection = forward SLE = 0.1;
+title 'Forward Selection';
+run;
+
+proc reg data = HateCrime;
+model splc = trump gini nonWhite;
+title 'Squared Correlation Coefficient (Forward Selection Model)';
+run;
+
+/*Stepwise
+splc = Gini + Non-White + Trump
+r^2 = 0.5266
+*/
+proc reg data = HateCrime;
+model splc = income unemployment population highSchool nonCitizen whitePoverty gini nonWhite trump / selection = stepwise SLS = 0.1 SLE = 0.1;
+title 'Step-wise';
+run;
+
+proc reg data = HateCrime;
+model splc = trump nonWhite gini;
+title 'Squared Correlation Coefficient (Stepwise Model)';
+run;
+
+*checking for linearity;
+*linear;
+proc reg data = HateCrime;
+model splc = income;
+plot splc * income;
+plot r. *p.;
+title 'Linearity: SPLC vs Income';
+run;
+
+*not linear;
+proc reg data = HateCrime;
+model splc = unemployment;
+plot splc * unemployment;
+plot r. *p.;
+title 'Linearity: SPLC vs Unemployment';
+run;
+
+*not linear;
+proc reg data = HateCrime;
+model splc = population;
+plot splc * population;
+title 'Linearity: SPLC vs Population';
+plot r. *p.;
+run;
+
+*linear;
+proc reg data = HateCrime;
+model splc = highSchool;
+plot splc * highSchool;
+title 'Linearity: SPLC vs High School';
+plot r. *p.;
+run;
+
+*not linear;
+proc reg data = HateCrime;
+model splc = nonCitizen;
+plot splc * nonCitizen;
+title 'Linearity: SPLC vs Non Citizen';
+plot r. *p.;
+run;
+
+*linear;
+proc reg data = HateCrime;
+model splc = whitePoverty;
+plot splc * whitePoverty;
+title 'Linearity: SPLC vs White Poverty';
+plot r. *p.;
+run;
+
+*linear;
+proc reg data = HateCrime;
+model splc = gini;
+plot splc * gini;
+title 'Linearity: SPLC vs GINI';
+plot r. *p.;
+run;
+
+*not linear;
+proc reg data = HateCrime;
+model splc = nonWhite;
+plot splc * nonWhite;
+title 'Linearity: SPLC vs Non White';
+plot r. *p.;
+run;
+
+*linear;
+proc reg data = HateCrime;
+model splc = trump;
+plot splc * trump;
+title 'Linearity: SPLC vs Trump';
+plot r. *p.;
+run;
+
+*r^2 = 0.5214 with non-linear variables removed from our best model (backwards elimination);
+proc reg data = HateCrime;
+model splc = trump gini highSchool;
+title 'Squared Correlation Coefficient (Non-Linear variables removed)';
+run;
+
+*test for normality;
+ods graphics on;
+proc reg data = HateCrime;
+model splc = trump gini highSchool;
+output out = normalityTest r = resid;
+title 'Test of Normality';
+run;
+proc univariate data = normalityTest plot normal;
+var resid;
+run;
+ods graphics off;
+
+*test of constant variance;
+proc reg data = HateCrime;
+model splc = trump gini highSchool / spec;
+title 'Test for Homogeneity of Variance';
+run;
+
+*test for collinearity using correlation matrix;
+proc corr data = HateCrime;
+var splc trump gini highSchool;
+title 'Correlation Matrix';
+run;
+
+*test for collinearity using VIF;
+proc reg data = HateCrime;
+model splc = trump gini highSchool / vif;
+ods graphics off;
+run;
+
+*check for outliers, leverages and influential points table;
+proc reg data = HateCrime;
+model splc = trump gini highSchool / r influence;
+title 'Outliers and Influential Points';
+run;
+
+*check for outliers, leverages and influential points graph;
+ods graphics on;
+proc reg data = HateCrime
+plots(label)=(CooksD RStudentByLeverage RStudentByPredicted);
+id state;
+model splc = trump gini highSchool;
+title 'Outliers and Influential Points Plots';
+run;
+ods graphics off;
+
+/*getting rid of the leverage and influential point: California + District of Columbia
+r^2 = 0.2806 after removing them
+*/
+data noLeverages;
+set HateCrime;
+if state = 'California' THEN DELETE;
+if state = 'District of Columbia' THEN DELETE;
+run;
+
+proc reg data = noLeverages;
+model splc = trump gini highSchool;
+title 'Squared Correlation Coefficient (No Leverages)';
+run;
+
+/* removing all the outliers, leverage and influential point 
+new r^2 = 0.3760
+*/
+data noOutliers;
+set HateCrime;
+if state = 'California' THEN DELETE;
+if state = 'District of Columbia' THEN DELETE;
+if state = 'New Jersey' THEN DELETE;
+if state = 'Oregon' THEN DELETE;
+if state = 'West Virginia' THEN DELETE;
+run;
+
+proc reg data = noOutliers;
+model splc = trump gini highSchool;
+title 'Squared Correlation Coefficient (No Outliers)';
+run;
+
+/* removing the leverage point only -> california
+r^2 = 0.5225
+*/
+data noCali;
+set HateCrime;
+if state = 'California' THEN DELETE;
+run;
+
+proc reg data = noCali;
+model splc = trump gini highSchool;
+title 'Squared Correlation Coefficient (No California)';
+run;
+
+/* removing the influential point -> District of Columbia
+r^2 = 0.2808
+*/
+data noCol;
+set HateCrime;
+if state = 'District of Columbia' THEN DELETE;
+run;
+
+proc reg data = noCol;
+model splc = trump gini highSchool;
+title 'Squared Correlation Coefficient (No Columbia)';
+run;
+
+/*running backwards elimination without district of columbia
+SPLC = High Shcool + White Poverty + Trump;
+r^2 = 0.3733
+*/
+proc reg data = noCol;
+model splc = income unemployment population highSchool nonCitizen whitePoverty gini nonWhite trump / selection = backward SLS = 0.1;
+title 'Backward Elimination';
+run;
+
+proc reg data = noCol;
+model splc = highSchool whitePoverty trump;
+title 'Squared Correlation Coefficient (Backwards Elimination Model without District of Columbia)';
+run;
+
+/*forward selection without District of Columbia
+splc = Non-White + Trump   
+r^2 = 0.3316
+*/
+proc reg data = noCol;
+model splc = income unemployment population highSchool nonCitizen whitePoverty gini nonWhite trump / selection = forward SLE = 0.1;
+title 'Forward Selection';
+run;
+
+proc reg data = noCol;
+model splc = trump nonWhite;
+title 'Squared Correlation Coefficient (Forward Selection Model without District of Columbia)';
+run;
